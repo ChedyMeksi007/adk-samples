@@ -1,0 +1,24 @@
+# Workspace (agent runtime output)
+machine_learning_engineering/workspace/
+
+# Task datasets (large, download via Kaggle API)
+machine_learning_engineering/tasks/*/train*.csv
+machine_learning_engineering/tasks/*/test*.csv
+machine_learning_engineering/tasks/*/sample_submission*.csv
+machine_learning_engineering/tasks/*/*.zip
+machine_learning_engineering/tasks/*/impermium_*.csv
+machine_learning_engineering/tasks/*/en_*.csv
+machine_learning_engineering/tasks/*/ru_*.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
