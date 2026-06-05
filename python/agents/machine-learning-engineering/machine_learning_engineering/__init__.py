@@ -16,11 +16,14 @@
 
 import os
 
-import google.auth
+use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "0")
+if use_vertex not in ("0", "false", "False"):
+    import google.auth
 
-_, project_id = google.auth.default()
-os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
-os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
+    _, project_id = google.auth.default()
+    if project_id:
+        os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
+    os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
+    os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 
 from . import agent  # noqa: E402
