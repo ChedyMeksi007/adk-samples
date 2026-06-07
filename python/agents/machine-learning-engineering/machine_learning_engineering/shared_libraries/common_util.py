@@ -2,6 +2,7 @@
 
 import os
 import random
+import re
 import shutil
 
 import numpy as np
@@ -12,14 +13,47 @@ from google.adk.models import llm_response
 def get_text_from_response(
     response: llm_response.LlmResponse,
 ) -> str:
-    """Extracts text from response."""
+    """Extracts text from response.
+
+    Skips reasoning/"thought" parts (e.g. gpt-oss exposes its chain-of-thought
+    via a separate reasoning field that ADK converts into thought=True parts).
+    Concatenating those would pollute generated code with prose.
+    """
     final_text = ""
     if response.content and response.content.parts:
-        num_parts = len(response.content.parts)
-        for i in range(num_parts):
-            if hasattr(response.content.parts[i], "text"):
-                final_text += response.content.parts[i].text
+        for part in response.content.parts:
+            if getattr(part, "thought", False):
+                continue
+            if getattr(part, "text", None) is not None:
+                final_text += part.text
     return final_text
+
+
+def extract_code(text: str) -> str:
+    """Extracts Python code from an LLM response, robust to surrounding prose.
+
+    Models like gpt-oss often wrap code in explanatory prose plus a fenced
+    block ("Here is the script:\n```python\n...\n```"). A naive
+    .replace("```python", "") leaves the prose prefix, which then fails to
+    execute. This returns only the fenced code block(s) when present, else the
+    text with stray fence markers stripped.
+    """
+    if not text:
+        return ""
+    blocks = re.findall(r"```(?:python|py)?\s*\n?(.*?)```", text, re.DOTALL)
+    if blocks:
+        # pick the largest block (the real program), not echoed snippets
+        code = max(blocks, key=len).strip()
+    else:
+        code = text.replace("```python", "").replace("```", "").strip()
+    # normalise "fancy" unicode some models emit (smart quotes, dashes) that
+    # break compilation when they land in code positions
+    for bad, good in (
+        ("‘", "'"), ("’", "'"), ("“", '"'), ("”", '"'),
+        ("‑", "-"), ("–", "-"), ("—", "-"), (" ", " "),
+    ):
+        code = code.replace(bad, good)
+    return code
 
 
 def set_random_seed(seed: int) -> None:

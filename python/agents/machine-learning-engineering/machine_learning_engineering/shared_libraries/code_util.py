@@ -38,10 +38,19 @@ def run_python_code(
         result = Result(returncode=1, stdout="", stderr=str(e))
     end_time = time.time()
     execution_time = end_time - start_time
+    # Truncate stdout/stderr to avoid blowing up context windows.
+    # Keep last N chars so the most recent output (scores, errors) is preserved.
+    _MAX_OUTPUT_CHARS = 5000
+    stdout = result.stdout
+    stderr = result.stderr
+    if len(stdout) > _MAX_OUTPUT_CHARS:
+        stdout = f"[...truncated {len(stdout) - _MAX_OUTPUT_CHARS} chars...]\n" + stdout[-_MAX_OUTPUT_CHARS:]
+    if len(stderr) > _MAX_OUTPUT_CHARS:
+        stderr = f"[...truncated {len(stderr) - _MAX_OUTPUT_CHARS} chars...]\n" + stderr[-_MAX_OUTPUT_CHARS:]
     result_dict = {
         "returncode": result.returncode,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
+        "stdout": stdout,
+        "stderr": stderr,
         "execution_time": execution_time,
     }
     return result_dict

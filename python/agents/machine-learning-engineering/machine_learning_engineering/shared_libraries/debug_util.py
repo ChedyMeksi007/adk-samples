@@ -6,7 +6,6 @@ from google.adk import agents
 from google.adk.agents import callback_context as callback_context_module
 from google.adk.models import llm_request as llm_request_module
 from google.adk.models import llm_response as llm_response_module
-from google.adk.tools.google_search_tool import google_search
 from google.genai import types
 
 from machine_learning_engineering.shared_libraries import (
@@ -16,6 +15,19 @@ from machine_learning_engineering.shared_libraries import (
     config,
     debug_prompt,
 )
+
+# Build tool list based on backend: google_search for Gemini, skrub RAG for LiteLLM
+_agent_tools = []
+if config.CONFIG.use_litellm:
+    if config.CONFIG.use_skrub_rag:
+        from machine_learning_engineering.shared_libraries import skrub_rag
+        _agent_tools = [skrub_rag.search_skrub_docs]
+else:
+    from google.adk.tools.google_search_tool import google_search
+    _agent_tools = [google_search]
+    if config.CONFIG.use_skrub_rag:
+        from machine_learning_engineering.shared_libraries import skrub_rag
+        _agent_tools.append(skrub_rag.search_skrub_docs)
 
 
 def check_rollback(
@@ -145,6 +157,10 @@ def get_bug_summary_agent_instruction(
     else:
         raise ValueError(f"Unexpected agent name: {agent_name}.")
     bug = result_dict.get("stderr", "")
+    # Truncate bug output to avoid context window overflow
+    _MAX_BUG_CHARS = 3000
+    if len(bug) > _MAX_BUG_CHARS:
+        bug = f"[...truncated {len(bug) - _MAX_BUG_CHARS} chars...]\n" + bug[-_MAX_BUG_CHARS:]
     return debug_prompt.BUG_SUMMARY_INSTR.format(
         bug=bug,
         filename=filename,
@@ -170,7 +186,9 @@ def get_debug_agent_instruction(
         suffix=suffix,
     )
     code = context.state.get(code_state_key, "")
-    return debug_prompt.BUG_REFINE_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = debug_prompt.BUG_REFINE_INSTR if use_skrub else debug_prompt.BUG_REFINE_INSTR_DEFAULT
+    return instr.format(
         task_description=task_description,
         code=code,
         bug=bug,
@@ -184,7 +202,7 @@ def get_code_from_response(
 ) -> llm_response_module.LlmResponse | None:
     """Gets the code from the response."""
     response_text = common_util.get_text_from_response(llm_response)
-    code = response_text.replace("```python", "").replace("```", "")
+    code = common_util.extract_code(response_text)
     agent_name = callback_context.agent_name
     suffix = code_util.get_updated_suffix(callback_context=callback_context)
     code_state_key = code_util.get_code_state_key(
@@ -261,7 +279,7 @@ def get_debug_inner_loop_agent(
             get_debug_agent_instruction,
             prefix=prefix,
         ),
-        tools=[google_search],
+        tools=_agent_tools,
         before_model_callback=check_bug_existence,
         after_model_callback=get_code_from_response,
         generate_content_config=types.GenerateContentConfig(
@@ -316,6 +334,7 @@ def get_run_and_debug_agent(
         ),
         description=f"{agent_description}.",
         instruction=instruction_func,
+        tools=_agent_tools,
         before_model_callback=before_model_callback,
         after_model_callback=functools.partial(
             get_code_from_response,
