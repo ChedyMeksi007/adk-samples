@@ -55,9 +55,7 @@ def parse_leakage_status(text: str) -> tuple[str, str]:
     text = text[start_idx:end_idx]
     result = json.loads(text)[0]
     leakage_status = result["leakage_status"]
-    code_block = (
-        result["code_block"].replace("```python", "").replace("```", "")
-    )
+    code_block = common_util.extract_code(result["code_block"])
     return leakage_status, code_block
 
 
@@ -138,9 +136,7 @@ def replace_leakage_code(
 ) -> llm_response_module.LlmResponse | None:
     """Replace the code block that has the data leakage issue."""
     response_text = common_util.get_text_from_response(llm_response)
-    refined_code_block = response_text.replace("```python", "").replace(
-        "```", ""
-    )
+    refined_code_block = common_util.extract_code(response_text)
     agent_name = callback_context.agent_name
     suffix = code_util.get_updated_suffix(callback_context=callback_context)
     leakage_block_key = code_util.get_name_with_prefix_and_suffix(
