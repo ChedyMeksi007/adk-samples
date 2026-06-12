@@ -89,9 +89,9 @@ def analyze_workforce_exposure(occupations: list[str]) -> str:
         occ_lower = occ.lower().strip()
         # Fallback to fuzzy match
         matched_data = None
-        for key in exposure_db:
+        for key, val in exposure_db.items():
             if key in occ_lower or occ_lower in key:
-                matched_data = exposure_db[key]
+                matched_data = val
                 matched_data["queried_occupation"] = occ
                 break
         

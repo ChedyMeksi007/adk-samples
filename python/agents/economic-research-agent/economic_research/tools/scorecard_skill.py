@@ -2,25 +2,25 @@
 """ADK Skill: Multi-Variable Location Scorecard for Site Selection."""
 
 import json
-from economic_research.tools.tax_foundation_skill import fetch_state_tax_rates
-from economic_research.tools.eia_skill import fetch_state_electricity_rates
+
 from economic_research.tools.bls_api_skill import analyze_labor_force_quality
+from economic_research.tools.eia_skill import fetch_state_electricity_rates
+from economic_research.tools.tax_foundation_skill import fetch_state_tax_rates
 
 
 def generate_location_scorecard(
     states: list[str],
-    weights: dict[str, float] = None,
-    employer_perspective: bool = True
+    weights: dict[str, float] | None = None,
+    employer_perspective: bool = True,
 ) -> str:
-    """
-    Generates a multi-variable site-selection scorecard comparing candidates states.
-    
+    """Generates a multi-variable site-selection scorecard comparing candidates states.
+
     Args:
         states: List of 2-letter state codes (e.g. ["TX", "NC", "OH"]).
         weights: Dictionary mapping criteria to weights (must sum to 1.0 or will be normalized).
                  Supported criteria: "corporate_tax", "electricity_rate", "labor_quality_index".
         employer_perspective: If True, lower wages/costs score higher. If False, higher wages score higher.
-        
+
     Returns:
         JSON string containing ranked scorecard and normalized criterion scores.
     """
@@ -29,9 +29,9 @@ def generate_location_scorecard(
         default_weights = {
             "corporate_tax": 0.35,
             "electricity_rate": 0.35,
-            "labor_quality_index": 0.30
+            "labor_quality_index": 0.30,
         }
-        
+
         if weights:
             # Clean and normalize user weights
             cleaned_weights = {}
@@ -50,16 +50,56 @@ def generate_location_scorecard(
 
         # State name mapper
         state_names = {
-            "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
-            "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
-            "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
-            "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
-            "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri",
-            "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey",
-            "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
-            "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
-            "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
-            "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming"
+            "AL": "Alabama",
+            "AK": "Alaska",
+            "AZ": "Arizona",
+            "AR": "Arkansas",
+            "CA": "California",
+            "CO": "Colorado",
+            "CT": "Connecticut",
+            "DE": "Delaware",
+            "FL": "Florida",
+            "GA": "Georgia",
+            "HI": "Hawaii",
+            "ID": "Idaho",
+            "IL": "Illinois",
+            "IN": "Indiana",
+            "IA": "Iowa",
+            "KS": "Kansas",
+            "KY": "Kentucky",
+            "LA": "Louisiana",
+            "ME": "Maine",
+            "MD": "Maryland",
+            "MA": "Massachusetts",
+            "MI": "Michigan",
+            "MN": "Minnesota",
+            "MS": "Mississippi",
+            "MO": "Missouri",
+            "MT": "Montana",
+            "NE": "Nebraska",
+            "NV": "Nevada",
+            "NH": "New Hampshire",
+            "NJ": "New Jersey",
+            "NM": "New Mexico",
+            "NY": "New York",
+            "NC": "North Carolina",
+            "ND": "North Dakota",
+            "OH": "Ohio",
+            "OK": "Oklahoma",
+            "OR": "Oregon",
+            "PA": "Pennsylvania",
+            "RI": "Rhode Island",
+            "SC": "South Carolina",
+            "SD": "South Dakota",
+            "TN": "Tennessee",
+            "TX": "Texas",
+            "UT": "Utah",
+            "VT": "Vermont",
+            "VA": "Virginia",
+            "WA": "Washington",
+            "WV": "West Virginia",
+            "WI": "Wisconsin",
+            "WY": "Wyoming",
         }
 
         # Gather data for each state
@@ -67,35 +107,43 @@ def generate_location_scorecard(
         for state in states:
             st_upper = state.strip().upper()
             st_name = state_names.get(st_upper, st_upper)
-            
+
             # 1. Tax Rate (lower is better)
-            tax_raw = 6.0 # Fallback
+            tax_raw = 6.0  # Fallback
             try:
                 tax_res = json.loads(fetch_state_tax_rates([st_name]))
                 if tax_res and "Corporate Tax Rate" in tax_res[0]:
-                    tax_raw = float(tax_res[0]["Corporate Tax Rate"].replace("%", "").strip())
+                    tax_raw = float(
+                        tax_res[0]["Corporate Tax Rate"].replace("%", "").strip()
+                    )
             except Exception:
                 pass
-                
+
             # 2. Electricity Rate (lower is better)
-            elec_raw = 10.0 # Fallback cents per kWh
+            elec_raw = 10.0  # Fallback cents per kWh
             try:
                 elec_res = json.loads(fetch_state_electricity_rates([st_upper]))
                 # Search for industrial or commercial rate
                 for item in elec_res:
-                    if "Industrial" in item.get("Sector", "") or "Commercial" in item.get("Sector", ""):
-                        elec_raw = float(item.get("Rate", "10.0").replace("¢", "").strip())
+                    if "Industrial" in item.get(
+                        "Sector", ""
+                    ) or "Commercial" in item.get("Sector", ""):
+                        elec_raw = float(
+                            item.get("Rate", "10.0").replace("¢", "").strip()
+                        )
                         break
             except Exception:
                 pass
-                
+
             # 3. Labor Quality Index / Wages (lower is better for employer perspective)
-            labor_raw = 50.0 # Fallback
+            labor_raw = 50.0  # Fallback
             try:
                 # Use BLS state metrics as proxy
-                bls_res = json.loads(analyze_labor_force_quality(st_upper))
+                _ = json.loads(analyze_labor_force_quality(st_upper))
                 # Count success rates or scale index
-                labor_raw = 65.0 if st_upper in ["NC", "TX", "WA", "CA"] else 45.0
+                labor_raw = (
+                    65.0 if st_upper in ["NC", "TX", "WA", "CA"] else 45.0
+                )
             except Exception:
                 pass
 
@@ -172,4 +220,4 @@ def generate_location_scorecard(
         }, indent=2)
 
     except Exception as e:
-        return json.dumps({"ERROR": f"Scorecard generation failed: {str(e)}"}, indent=2)
+        return json.dumps({"ERROR": f"Scorecard generation failed: {e!s}"}, indent=2)

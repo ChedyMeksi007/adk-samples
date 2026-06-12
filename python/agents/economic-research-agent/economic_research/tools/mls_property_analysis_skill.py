@@ -2,6 +2,7 @@
 """MLS Property Analysis and Real Estate Investment Yield Calculator Skill."""
 
 import json
+
 from economic_research.tools.hud_skill import fetch_hud_fmr_data
 
 # Grounded city-to-county FIPS mappings for HUD integration
@@ -14,7 +15,9 @@ CITY_FIPS_MAP = {
 
 
 def fetch_mls_property_listings(
-    city_name: str, max_price: float = None, property_type: str = "multifamily"
+    city_name: str,
+    max_price: float | None = None,
+    property_type: str = "multifamily",
 ) -> str:
     """
     Queries MLS listings for a target metropolitan area and performs automated 
