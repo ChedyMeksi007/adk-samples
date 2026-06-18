@@ -10,7 +10,6 @@ from google.adk import agents
 from google.adk.agents import callback_context as callback_context_module
 from google.adk.models import llm_request as llm_request_module
 from google.adk.models import llm_response as llm_response_module
-from google.adk.tools.google_search_tool import google_search
 from google.genai import types
 
 from machine_learning_engineering.shared_libraries import (
@@ -18,6 +17,7 @@ from machine_learning_engineering.shared_libraries import (
     config,
     debug_util,
 )
+from machine_learning_engineering.shared_libraries.debug_util import _agent_tools
 from machine_learning_engineering.sub_agents.initialization import prompt
 
 
@@ -184,14 +184,15 @@ def rank_candidate_solutions(
                     init_code_exec_result,
                 )
             )
+    if not performance_results:
+        # All init code executions failed — skip ranking
+        return None
     if callback_context.state.get("lower", True):
         performance_results.sort(key=lambda x: x[0])
     else:
         performance_results.sort(key=lambda x: x[0], reverse=True)
     best_score = performance_results[0][0]
-    base_solution = (
-        performance_results[0][1].replace("```python", "").replace("```", "")
-    )
+    base_solution = common_util.extract_code(performance_results[0][1])
     callback_context.state[f"performance_results_{task_id}"] = (
         performance_results
     )
@@ -224,7 +225,7 @@ def select_best_solution(
     result_dict = callback_context.state.get(
         f"merger_code_exec_result_{task_id}_{best_idx}", {}
     )
-    code_text = response.replace("```python", "").replace("```", "")
+    code_text = common_util.extract_code(response)
     output_filepath = os.path.join(run_cwd, "train0.py")
     with open(output_filepath, "w", encoding="utf-8") as f:
         f.write(code_text)
@@ -249,17 +250,17 @@ def update_merger_states(
     result_dict = callback_context.state.get(
         f"merger_code_exec_result_{task_id}_{reference_idx}", {}
     )
+    if not result_dict or "score" not in result_dict:
+        return None
     score = result_dict["score"]
     if lower:
         if score <= best_score:
             best_score = score
-            base_solution = merged_code.replace("```python", "").replace(
-                "```", ""
-            )
+            base_solution = common_util.extract_code(merged_code)
             best_idx = int(reference_idx)
     elif score >= best_score:
         best_score = score
-        base_solution = merged_code.replace("```python", "").replace("```", "")
+        base_solution = common_util.extract_code(merged_code)
         best_idx = int(reference_idx)
     callback_context.state[f"best_score_{task_id}"] = best_score
     callback_context.state[f"base_solution_{task_id}"] = base_solution
@@ -273,6 +274,8 @@ def prepare_task(
     """Prepares things for the task."""
     config_dict = dataclasses.asdict(config.CONFIG)
     for key in config_dict:
+        if key == "agent_model":
+            continue
         callback_context.state[key] = config_dict[key]
     callback_context.state["start_time"] = time.time()
     # fix randomness
@@ -333,7 +336,9 @@ def get_model_eval_agent_instruction(
         f"init_{task_id}_model_{model_id}",
         {},
     ).get("model_description", "")
-    return prompt.MODEL_EVAL_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.MODEL_EVAL_INSTR if use_skrub else prompt.MODEL_EVAL_INSTR_DEFAULT
+    return instr.format(
         task_description=task_description,
         model_description=model_description,
     )
@@ -345,7 +350,9 @@ def get_model_retriever_agent_instruction(
     """Gets the model retriever agent instruction."""
     task_summary = context.state.get("task_summary", "")
     num_model_candidates = context.state.get("num_model_candidates", 2)
-    return prompt.MODEL_RETRIEVAL_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.MODEL_RETRIEVAL_INSTR if use_skrub else prompt.MODEL_RETRIEVAL_INSTR_DEFAULT
+    return instr.format(
         task_summary=task_summary,
         num_model_candidates=num_model_candidates,
     )
@@ -362,14 +369,14 @@ def get_merger_agent_instruction(
     )
     base_solution = context.state.get(f"base_solution_{task_id}", "")
     if reference_idx < len(performance_results):
-        reference_solution = (
+        reference_solution = common_util.extract_code(
             performance_results[reference_idx][1]
-            .replace("```python", "")
-            .replace("```", "")
         )
     else:
         reference_solution = ""
-    return prompt.CODE_INTEGRATION_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.CODE_INTEGRATION_INSTR if use_skrub else prompt.CODE_INTEGRATION_INSTR_DEFAULT
+    return instr.format(
         base_code=base_solution,
         reference_code=reference_solution,
     )
@@ -382,7 +389,9 @@ def get_check_data_use_instruction(
     task_id = context.agent_name.split("_")[-1]
     task_description = context.state.get("task_description", "")
     code = context.state.get(f"train_code_0_{task_id}", "")
-    return prompt.CHECK_DATA_USE_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.CHECK_DATA_USE_INSTR if use_skrub else prompt.CHECK_DATA_USE_INSTR_DEFAULT
+    return instr.format(
         code=code,
         task_description=task_description,
     )
@@ -406,7 +415,7 @@ for k in range(config.CONFIG.num_solutions):
         name=f"model_retriever_agent_{k + 1}",
         description="Retrieve effective models for solving a given task.",
         instruction=get_model_retriever_agent_instruction,
-        tools=[google_search],
+        tools=_agent_tools,
         before_model_callback=check_model_finish,
         after_model_callback=get_model_candidates,
         generate_content_config=types.GenerateContentConfig(
