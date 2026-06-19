@@ -46,14 +46,16 @@ def update_outer_loop_states(
         f"train_code_exec_result_{step}_{task_id}", {}
     )
     improvements = []
+    prev_score = prev_exec_result.get("score", 1e9 if lower else 0)
     for inner_iter in range(inner_loop_round):
         exec_result = callback_context.state.get(
             f"train_code_improve_exec_result_{inner_iter}_{step}_{task_id}", {}
         )
+        curr_score = exec_result.get("score", 1e9 if lower else 0)
         if lower:
-            improvement = prev_exec_result["score"] - exec_result["score"]
+            improvement = prev_score - curr_score
         else:
-            improvement = exec_result["score"] - prev_exec_result["score"]
+            improvement = curr_score - prev_score
         improvements.append(improvement)
     best_improvement = max(improvements)
     best_idx = improvements.index(best_improvement)
@@ -90,6 +92,10 @@ def update_outer_loop_states(
     )
     callback_context.state[f"prev_ablations_{task_id}"].append(ablation_results)
     callback_context.state[f"prev_code_blocks_{task_id}"].append(code_block)
+    # Keep only the last 2 entries to avoid context window overflow
+    _MAX_HISTORY = 2
+    callback_context.state[f"prev_ablations_{task_id}"] = callback_context.state[f"prev_ablations_{task_id}"][-_MAX_HISTORY:]
+    callback_context.state[f"prev_code_blocks_{task_id}"] = callback_context.state[f"prev_code_blocks_{task_id}"][-_MAX_HISTORY:]
     callback_context.state[f"refine_step_{task_id}"] += 1
     return None
 
@@ -126,13 +132,17 @@ def get_ablation_agent_instruction(
     for i, ablation_result in enumerate(prev_ablations):
         prev_ablations_str += f"## Previous ablation study result {i + 1}\n"
         prev_ablations_str += f"{ablation_result}\n\n"
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    print(f"[refinement] ablation use_skrub={use_skrub} task={task_id} step={step}")
     if prev_ablations_str:
-        instruction = prompt.ABLATION_SEQ_INSTR.format(
+        instr = prompt.ABLATION_SEQ_INSTR if use_skrub else prompt.ABLATION_SEQ_INSTR_DEFAULT
+        instruction = instr.format(
             code=code,
             prev_ablations=prev_ablations_str,
         )
     else:
-        instruction = prompt.ABLATION_INSTR.format(
+        instr = prompt.ABLATION_INSTR if use_skrub else prompt.ABLATION_INSTR_DEFAULT
+        instruction = instr.format(
             code=code,
         )
     return instruction
@@ -165,13 +175,16 @@ def get_init_plan_agent_instruction(
         f"ablation_summary_{step}_{task_id}", ""
     )
     prev_code_blocks = context.state.get(f"prev_code_blocks_{task_id}", [])
+    use_skrub = context.state.get("use_skrub_pipelines", True)
     if not prev_code_blocks:
-        instruction = prompt.EXTRACT_BLOCK_AND_PLAN_INSTR.format(
+        instr = prompt.EXTRACT_BLOCK_AND_PLAN_INSTR if use_skrub else prompt.EXTRACT_BLOCK_AND_PLAN_INSTR_DEFAULT
+        instruction = instr.format(
             code=code,
             ablation_results=ablation_results,
         )
     else:
-        instruction = prompt.EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR.format(
+        instr = prompt.EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR if use_skrub else prompt.EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR_DEFAULT
+        instruction = instr.format(
             code=code,
             ablation_results=ablation_results,
             prev_code_blocks=prev_code_blocks,
@@ -191,17 +204,19 @@ def get_plan_refinement_instruction(
     prev_exec_result = context.state.get(
         f"train_code_exec_result_{step}_{task_id}", {}
     )
+    prev_score = prev_exec_result.get("score", 1e9 if lower else 0)
     score_plan_time_list = []
     for inner_iter, curr_plan in enumerate(prev_plans):
         exec_result = context.state.get(
             f"train_code_improve_exec_result_{inner_iter}_{step}_{task_id}", {}
         )
+        curr_score = exec_result.get("score", 1e9 if lower else 0)
         if lower:
-            improvement = prev_exec_result["score"] - exec_result["score"]
+            improvement = prev_score - curr_score
         else:
-            improvement = exec_result["score"] - prev_exec_result["score"]
+            improvement = curr_score - prev_score
         score_plan_time_list.append(
-            (improvement, curr_plan, exec_result["execution_time"])
+            (improvement, curr_plan, exec_result.get("execution_time", 0))
         )
     num_top_plans = context.state.get("num_top_plans", 3)
     score_plan_time_list.sort(key=lambda x: x[0], reverse=True)
@@ -213,7 +228,9 @@ def get_plan_refinement_instruction(
             f"## Execution time after implement: {execution_time}s\n"
         )
         prev_plan_summary += f"## Score: {score:.5f}\n\n"
-    return prompt.PLAN_REFINEMENT_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.PLAN_REFINEMENT_INSTR if use_skrub else prompt.PLAN_REFINEMENT_INSTR_DEFAULT
+    return instr.format(
         code_block=code_block,
         prev_plan_summary=prev_plan_summary,
     )
@@ -227,7 +244,9 @@ def get_plan_implement_agent_instruction(
     step = context.state.get(f"refine_step_{task_id}", 0)
     code_block = context.state.get(f"refine_code_block_{step}_{task_id}", "")
     plan = context.state.get(f"refine_plans_{step}_{task_id}", [""])[-1]
-    return prompt.IMPLEMENT_PLAN_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.IMPLEMENT_PLAN_INSTR if use_skrub else prompt.IMPLEMENT_PLAN_INSTR_DEFAULT
+    return instr.format(
         code_block=code_block,
         plan=plan,
     )
@@ -317,9 +336,7 @@ def get_plan_and_code_block(
     try:
         result = json.loads(response_text[start_idx:end_idx])[0]
         plan = result["plan"]
-        code_block = (
-            result["code_block"].replace("```python", "").replace("```", "")
-        )
+        code_block = common_util.extract_code(result["code_block"])
     except Exception:
         plan = ""
         code_block = ""
