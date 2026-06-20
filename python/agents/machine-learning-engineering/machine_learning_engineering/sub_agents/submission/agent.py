@@ -37,8 +37,10 @@ def get_submission_and_debug_agent_instruction(
             f"train_code_{outer_loop_round}_{task_id}", ""
         )
         curr_exec_result = context.state.get(
-            f"train_code_exec_result_{outer_loop_round}_{task_id}", ""
+            f"train_code_exec_result_{outer_loop_round}_{task_id}", {}
         )
+        if not curr_exec_result or "score" not in curr_exec_result:
+            continue
         curr_score = curr_exec_result["score"]
         if (
             (best_score is None)
@@ -52,6 +54,8 @@ def get_submission_and_debug_agent_instruction(
         curr_exec_result = context.state.get(
             f"ensemble_code_exec_result_{ensemble_iter}", {}
         )
+        if not curr_exec_result or "score" not in curr_exec_result:
+            continue
         curr_score = curr_exec_result["score"]
         if (
             (best_score is None)
@@ -60,7 +64,9 @@ def get_submission_and_debug_agent_instruction(
         ):
             final_solution = curr_code
             best_score = curr_score
-    return prompt.ADD_TEST_FINAL_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.ADD_TEST_FINAL_INSTR if use_skrub else prompt.ADD_TEST_FINAL_INSTR_DEFAULT
+    return instr.format(
         task_description=task_description,
         code=final_solution,
     )

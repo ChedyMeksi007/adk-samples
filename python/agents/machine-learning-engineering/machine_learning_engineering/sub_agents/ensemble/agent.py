@@ -74,6 +74,13 @@ def get_refined_ensemble_plan(
     return None
 
 
+def _truncate_code(code: str, max_chars: int = 8000) -> str:
+    """Truncate code to max_chars, keeping the end (most refined part)."""
+    if len(code) <= max_chars:
+        return code
+    return f"# [...truncated {len(code) - max_chars} chars...]\n" + code[-max_chars:]
+
+
 def get_init_ensemble_plan_agent_instruction(
     context: callback_context_module.ReadonlyContext,
 ) -> str:
@@ -83,9 +90,12 @@ def get_init_ensemble_plan_agent_instruction(
     python_solutions = []
     for task_id in range(1, num_solutions + 1):
         code = context.state.get(f"train_code_{outer_loop_round}_{task_id}", "")
+        code = _truncate_code(code)
         formatted_str = f"# Python Solution {task_id}\n```python\n{code}\n```\n"
         python_solutions.append(formatted_str)
-    instruction = prompt.INIT_ENSEMBLE_PLAN_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.INIT_ENSEMBLE_PLAN_INSTR if use_skrub else prompt.INIT_ENSEMBLE_PLAN_INSTR_DEFAULT
+    instruction = instr.format(
         num_solutions=num_solutions,
         python_solutions="\n".join(python_solutions),
     )
@@ -104,7 +114,7 @@ def get_ensemble_plan_refinement_instruction(
     prev_scores = []
     for k in range(len(prev_plans)):
         exec_result = context.state.get(f"ensemble_code_exec_result_{k}", {})
-        prev_scores.append(exec_result["score"])
+        prev_scores.append(exec_result.get("score", 1e9 if lower else 0))
     sorted_idx = np.argsort(prev_scores)[::-1]
     if lower:
         sorted_idx = sorted_idx[-num_top_plans:]
@@ -119,9 +129,12 @@ def get_ensemble_plan_refinement_instruction(
     python_solutions = []
     for task_id in range(1, num_solutions + 1):
         code = context.state.get(f"train_code_{outer_loop_round}_{task_id}", "")
+        code = _truncate_code(code)
         formatted_str = f"# Python Solution {task_id}\n```python\n{code}\n```\n"
         python_solutions.append(formatted_str)
-    return prompt.ENSEMBLE_PLAN_REFINE_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.ENSEMBLE_PLAN_REFINE_INSTR if use_skrub else prompt.ENSEMBLE_PLAN_REFINE_INSTR_DEFAULT
+    return instr.format(
         num_solutions=num_solutions,
         python_solutions="\n".join(python_solutions),
         prev_plans_and_scores=prev_plans_and_scores,
@@ -138,10 +151,13 @@ def get_ensemble_plan_implement_agent_instruction(
     python_solutions = []
     for task_id in range(1, num_solutions + 1):
         code = context.state.get(f"train_code_{outer_loop_round}_{task_id}", "")
+        code = _truncate_code(code)
         formatted_str = f"# Python Solution {task_id}\n```python\n{code}\n```\n"
         python_solutions.append(formatted_str)
     prev_plans = context.state.get("ensemble_plans", [""])
-    return prompt.ENSEMBLE_PLAN_IMPLEMENT_INSTR.format(
+    use_skrub = context.state.get("use_skrub_pipelines", True)
+    instr = prompt.ENSEMBLE_PLAN_IMPLEMENT_INSTR if use_skrub else prompt.ENSEMBLE_PLAN_IMPLEMENT_INSTR_DEFAULT
+    return instr.format(
         num_solutions=num_solutions,
         python_solutions="\n".join(python_solutions),
         plan=prev_plans[-1],
