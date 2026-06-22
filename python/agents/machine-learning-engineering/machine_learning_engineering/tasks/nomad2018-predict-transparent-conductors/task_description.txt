@@ -1,0 +1,31 @@
+# Task
+
+Predict two target properties of transparent conductors: formation_energy_ev_natom and bandgap_energy_ev. This is a multi-output regression problem.
+
+# Metric
+
+root_mean_squared_log_error (RMSLE, mean across both targets)
+
+# Submission Format
+```
+id,formation_energy_ev_natom,bandgap_energy_ev
+1,0.1779,1.8892
+2,0.1779,1.8892
+etc.
+```
+
+# Dataset
+
+train.csv
+```
+id,spacegroup,number_of_total_atoms,percent_atom_al,percent_atom_ga,percent_atom_in,lattice_vector_1_ang,lattice_vector_2_ang,lattice_vector_3_ang,lattice_angle_alpha_degree,lattice_angle_beta_degree,lattice_angle_gamma_degree,formation_energy_ev_natom,bandgap_energy_ev
+1,33,80.0,0.625,0.375,0.0,9.9523,8.5513,9.1775,90.0026,90.0023,90.0017,0.068,3.4387
+etc.
+```
+
+test.csv
+```
+id,spacegroup,number_of_total_atoms,percent_atom_al,percent_atom_ga,percent_atom_in,lattice_vector_1_ang,lattice_vector_2_ang,lattice_vector_3_ang,lattice_angle_alpha_degree,lattice_angle_beta_degree,lattice_angle_gamma_degree
+1,33,80.0,0.1875,0.4688,0.3438,10.5381,9.0141,9.6361,89.9997,90.0003,90.0006
+etc.
+```

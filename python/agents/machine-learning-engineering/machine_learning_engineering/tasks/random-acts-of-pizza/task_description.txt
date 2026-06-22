@@ -1,0 +1,29 @@
+# Task
+
+Predict whether a Reddit user's request for free pizza will be fulfilled (requester_received_pizza). This is a binary classification problem. The data is in JSON format.
+
+# Metric
+
+roc_auc
+
+# Submission Format
+```
+request_id,requester_received_pizza
+t3_l25d7,0
+t3_lmkn1,0
+etc.
+```
+
+# Dataset
+
+train.json (JSON array of objects)
+```
+Keys include: request_id, request_text, request_title, requester_account_age_in_days_at_request, requester_number_of_comments_at_request, requester_number_of_posts_at_request, requester_upvotes_minus_downvotes_at_request, requester_received_pizza (target: boolean)
+etc.
+```
+
+test.json (JSON array of objects)
+```
+Keys include: request_id, request_text_edit_aware, request_title, requester_account_age_in_days_at_request, requester_number_of_comments_at_request, requester_number_of_posts_at_request
+etc.
+```

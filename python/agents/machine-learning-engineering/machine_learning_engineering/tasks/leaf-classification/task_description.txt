@@ -1,0 +1,36 @@
+# Task
+
+Predict the species of a leaf from pre-extracted features. This is a multi-class classification problem with 99 species. Each leaf has 192 features: 64 margin, 64 shape, and 64 texture descriptors. Predict the probability of each species. Images are also available in the images/ directory.
+
+# Metric
+
+multi-class log_loss
+
+# Submission Format
+```
+id,Acer_Capillipes,Acer_Circinatum,Acer_Mono,Acer_Opalus,...,Zelkova_Serrata
+4,0.010101,0.010101,0.010101,0.010101,...,0.010101
+7,0.010101,0.010101,0.010101,0.010101,...,0.010101
+etc.
+```
+
+One column per species (99 species total), values are predicted probabilities.
+
+# Dataset
+
+train.csv
+```
+id,species,margin1,margin2,...,margin64,shape1,shape2,...,shape64,texture1,texture2,...,texture64
+1,Acer_Opalus,0.007812,0.023438,...,0.001953,0.000647,0.000609,...,0.000660,0.049805,0.017578,...,0.025391
+2,Pterocarya_Stenoptera,0.005859,0.000000,...,0.000000,0.000749,0.000695,...,0.000747,0.000000,0.000000,...,0.022461
+etc.
+```
+
+test.csv
+```
+id,margin1,margin2,...,margin64,shape1,shape2,...,shape64,texture1,texture2,...,texture64
+4,0.000000,0.000000,...
+etc.
+```
+
+images/ (directory of leaf images, filename is {id}.jpg)
