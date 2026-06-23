@@ -1,0 +1,32 @@
+# Task
+
+Predict the author of a given text excerpt. This is a multi-class classification problem with 3 classes: EAP (Edgar Allan Poe), HPL (H.P. Lovecraft), MWS (Mary Shelley).
+
+# Metric
+
+multi-class log_loss
+
+# Submission Format
+```
+id,EAP,HPL,MWS
+id02310,0.403,0.287,0.308
+id24541,0.403,0.287,0.308
+etc.
+```
+
+# Dataset
+
+train.csv
+```
+id,text,author
+"id26305","This process, however, afforded me no means of ascertaining the dimensions of my dungeon...","EAP"
+"id17569","It never once occurred to me that the fumbling might be a mere mistake.","HPL"
+etc.
+```
+
+test.csv
+```
+id,text
+"id02310","Still, as I urged our leaving Ireland with such inquietude and impatience..."
+etc.
+```

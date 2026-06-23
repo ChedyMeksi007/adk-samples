@@ -1,0 +1,31 @@
+# Task
+
+Predict the probability of each type of toxicity for each comment. This is a multi-label classification problem with 6 target columns: toxic, severe_toxic, obscene, threat, insult, identity_hate.
+
+# Metric
+
+roc_auc (mean column-wise ROC AUC)
+
+# Submission Format
+```
+id,toxic,severe_toxic,obscene,threat,insult,identity_hate
+00001cee341fdb12,0.5,0.5,0.5,0.5,0.5,0.5
+0000247867823ef7,0.5,0.5,0.5,0.5,0.5,0.5
+etc.
+```
+
+# Dataset
+
+train.csv
+```
+id,comment_text,toxic,severe_toxic,obscene,threat,insult,identity_hate
+"0000997932d777bf","Explanation\nWhy the edits made under my username...",0,0,0,0,0,0
+etc.
+```
+
+test.csv
+```
+id,comment_text
+"00001cee341fdb12","Yo bitch Ja Rule is more succesful then you'll ever be..."
+etc.
+```

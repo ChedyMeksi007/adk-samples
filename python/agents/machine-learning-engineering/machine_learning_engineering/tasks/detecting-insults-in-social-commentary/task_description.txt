@@ -1,0 +1,36 @@
+# Task
+
+Predict whether a social media comment is insulting (Insult column, 0 or 1). This is a binary classification problem on text data.
+
+# Metric
+
+roc_auc
+
+# Submission Format
+```
+Insult,Date,Comment
+0,20120618222256Z,"@ian21..."
+0,20120618213617Z,"Agree with Alan..."
+etc.
+```
+
+The submission file has the same columns as the training data. The Insult column contains the predicted label.
+
+# Dataset
+
+train.csv
+```
+Insult,Date,Comment
+1,20120618192155Z,"You fuck your dad."
+0,20120528192215Z,"i really don't understand your point."
+0,,"A majority of Canadians can and has been wrong..."
+etc.
+```
+
+test.csv
+```
+id,Date,Comment
+1,20120603163526Z,"like this if you are a tribe fan"
+2,20120531215447Z,"you're idiot......................."
+etc.
+```
