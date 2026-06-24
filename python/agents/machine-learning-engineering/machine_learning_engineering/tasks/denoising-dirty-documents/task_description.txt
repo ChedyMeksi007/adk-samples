@@ -1,0 +1,23 @@
+# Task
+
+Remove noise from dirty document images to produce clean versions. For each pixel in each test image, predict the cleaned grayscale intensity value. Train images are in train/ with corresponding cleaned versions in train_cleaned/. This is a pixel-level regression problem (image-to-image).
+
+# Metric
+
+root_mean_squared_error (per-pixel)
+
+# Submission Format
+```
+id,value
+1_1_1,1
+1_2_1,1
+etc.
+```
+
+The id is formatted as "{image_id}_{row}_{column}". Each pixel is a separate row.
+
+# Dataset
+
+train/ (directory of noisy .png document images)
+train_cleaned/ (directory of corresponding clean .png document images)
+test/ (directory of noisy .png document images to denoise)

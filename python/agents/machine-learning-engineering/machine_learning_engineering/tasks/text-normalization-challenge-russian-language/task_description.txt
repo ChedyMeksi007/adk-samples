@@ -1,0 +1,37 @@
+# Task
+
+Convert written Russian text tokens into their spoken/normalized forms. For example, numbers, dates, abbreviations, and special characters are converted to their full written-out Russian equivalents. This is a text-to-text prediction problem.
+
+Note: There are two test sets (ru_test.csv and ru_test_2.csv) with corresponding submission files. Training data is provided in ru_train.csv (10.6M rows).
+
+# Metric
+
+accuracy (exact string match of the normalized "after" field)
+
+# Submission Format
+```
+id,after
+0_0,Производится
+0_1,в
+etc.
+```
+
+The id is formatted as "{sentence_id}_{token_id}".
+
+# Dataset
+
+ru_test.csv
+```
+sentence_id,token_id,before
+0,0,Производится
+0,1,в
+etc.
+```
+
+ru_test_2.csv (second test set, same format)
+```
+sentence_id,token_id,before
+0,0,Эта
+0,1,книга
+etc.
+```

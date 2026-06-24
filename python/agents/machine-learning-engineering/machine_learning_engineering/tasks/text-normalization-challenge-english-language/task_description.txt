@@ -1,0 +1,50 @@
+# Task
+
+Convert written text tokens into their spoken/normalized forms. For example, "12" becomes "twelve", "$3.50" becomes "three dollars fifty cents", "Dr." becomes "doctor". Each token has a class label in the training data (e.g. PLAIN, DATE, CARDINAL, MEASURE, etc.) indicating the type of normalization needed. This is a text-to-text prediction problem.
+
+Note: There are two test sets (en_test.csv and en_test_2.csv) with corresponding submission files.
+
+# Metric
+
+accuracy (exact string match of the normalized "after" field)
+
+# Submission Format
+```
+id,after
+0_0,Another
+0_1,religious
+etc.
+```
+
+The id is formatted as "{sentence_id}_{token_id}".
+
+# Dataset
+
+en_train.csv
+```
+sentence_id,token_id,class,before,after
+0,0,PLAIN,Brillantaisia,Brillantaisia
+0,1,PLAIN,is,is
+0,2,PLAIN,a,a
+0,3,PLAIN,genus,genus
+0,4,PLAIN,of,of
+0,5,PLAIN,plant,plant
+0,6,PLAIN,in,in
+etc.
+```
+
+en_test.csv
+```
+sentence_id,token_id,before
+0,0,Another
+0,1,religious
+etc.
+```
+
+en_test_2.csv (second test set, same format)
+```
+sentence_id,token_id,before
+0,0,Last
+0,1,modified
+etc.
+```
