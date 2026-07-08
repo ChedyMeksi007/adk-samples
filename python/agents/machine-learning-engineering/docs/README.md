@@ -4,11 +4,12 @@
 
 This project extends **MLE-STAR** (Machine Learning Engineering Agent via Search and Targeted Refinement) — a multi-agent system that autonomously solves Kaggle-style ML competitions. The original system, described in [arxiv.org/abs/2506.15692](https://www.arxiv.org/abs/2506.15692), uses Gemini as its sole LLM backend and generates standard sklearn pipelines.
 
-Our contributions add three capabilities:
+Our contributions add four capabilities:
 
 1. **Open-source LLM backend** via LiteLLM, routing to models hosted on an in-house H100 cluster (Llama 3.3 70B, GPT-OSS 120B, Qwen3-Coder 480B) and OpenAI GPT-4o.
-2. **Skrub DataOps pipeline generation** — all code-generation prompts have a skrub variant that instructs the model to use `TableVectorizer`, `GapEncoder`, `MinHashEncoder`, `DatetimeEncoder`, and `tabular_learner`.
+2. **Skrub DataOps pipeline generation** — all code-generation prompts have a skrub variant that instructs the model to build solutions using the [skrub](https://skrub-data.org/) DataOps API instead of standard sklearn pipelines.
 3. **RAG over skrub documentation** — a FAISS + BM25 hybrid retrieval system over skrub docs, examples, and docstrings, queried at runtime by agents that need skrub API knowledge.
+4. **SearXNG web source integration** — an optional third retrieval source that queries a self-hosted SearXNG instance for up-to-date skrub examples, fused into the RAG pipeline with configurable source-priority weights.
 
 Every contribution is toggled via environment variables so each component's effect can be isolated in experiments.
 
@@ -36,12 +37,8 @@ machine-learning-engineering/
 │       ├── refinement/                   # Phase 2: ablation & improvement
 │       ├── ensemble/                     # Phase 3: voting/stacking
 │       └── submission/                   # Phase 4: test inference & CSV output
-├── experiments/                           # Experiment runner scripts & logs
-│   ├── run_all_experiments.sh            # Main experiment orchestrator
-│   ├── run_4tasks_dataops_experiment.sh  # 4-task sweep
-│   ├── run_retry8h_skrub_rag.sh          # Extended 8h retry runs
-│   ├── compute_run_metrics.py            # Metrics extraction
-│   └── *.log                             # Experiment run logs
+├── experiments/                           # Experiment tooling
+│   └── compute_run_metrics.py            # Metrics extraction from agent output
 ├── docs/                                  # Project documentation
 │   ├── README.md                          # This file
 │   ├── CONTRIBUTIONS.md                   # Per-member contribution breakdown
@@ -89,7 +86,30 @@ Toggle: `USE_LITELLM=1` in `.env`.
 
 ### 2. Skrub DataOps Prompts (`sub_agents/*/prompt.py`)
 
-All sub-agent prompts have dual-mode variants. When enabled, the system instructs the LLM to build solutions as skrub DataOps computation graphs instead of standard sklearn pipelines.
+All sub-agent prompts have dual-mode variants. When enabled, the system instructs the LLM to build solutions using the skrub DataOps API instead of standard sklearn pipelines. The skrub prompts guide the model through a graph-based computation pattern:
+
+```
+skrub.var("data", df)  →  .skb.mark_as_X() / .skb.mark_as_y()
+    →  .skb.apply(skrub.TableVectorizer())  →  .skb.apply(model, y=y)
+    →  .skb.make_learner()
+```
+
+For example, the initialization prompt includes a concrete code template:
+
+```python
+# Declare inputs as DataOps variables
+data = skrub.var("data", df)
+X = data[feature_cols].skb.mark_as_X()
+y = data[target_col].skb.mark_as_y()
+
+# Preprocessing inside the graph — TableVectorizer auto-detects column types
+X_vec = X.skb.apply(skrub.TableVectorizer())
+
+# Add the estimator and export
+learner = X_vec.skb.apply(RandomForestRegressor(), y=y).skb.make_learner()
+```
+
+The refinement prompts enforce the same pattern: *"Maintain the skrub DataOps graph structure (`skrub.var` → `.skb.mark_as_X`/`mark_as_y` → `.skb.apply(...)` → `.skb.make_learner`). Do not replace it with a scikit-learn `Pipeline`/`make_pipeline`."*
 
 Toggle: `USE_SKRUB_PIPELINES=1` in `.env`.
 
@@ -99,10 +119,15 @@ A retrieval-augmented generation system providing skrub API knowledge to agents 
 
 - **Chunking modes**: `fixed` (1000-char overlapping) or `structural` (RST sections + Python AST + numpydoc)
 - **Retrieval modes**: `dense` (FAISS cosine) or `hybrid` (BM25 + dense with Reciprocal Rank Fusion)
-- **Optional web source**: SearXNG integration as a third fusion source with configurable weights
-- **Tool**: `search_skrub_docs(query)` injected into model retrieval, debug, and run agents
+- **Tool**: `search_skrub_docs(query)` injected into model retrieval, debug, and refinement agents
 
 Toggle: `USE_SKRUB_RAG=1`, `RAG_CHUNKING=structural`, `RAG_RETRIEVAL=hybrid` in `.env`.
+
+### 4. SearXNG Web Source (`shared_libraries/skrub_rag.py`)
+
+An optional third retrieval source that queries a self-hosted SearXNG instance for up-to-date skrub usage examples from the web. Results are preprocessed (HTML stripped, chunked) and fused with the internal dense and BM25 sources using weighted Reciprocal Rank Fusion (default weights: 60% internal docs, 25% BM25 keywords, 15% web).
+
+Toggle: `RAG_WEB=1`, `SEARXNG_URL=http://localhost:8080` in `.env`.
 
 See [EXPERIMENTAL_RESULTS.md](EXPERIMENTAL_RESULTS.md) for the RAG technique analysis and full benchmark results.
 
@@ -247,9 +272,6 @@ pytest tests/test_e2e_benchmark.py -v -s -k "spooky"
 
 # All 10 tasks
 pytest tests/test_e2e_benchmark.py -v -s
-
-# Full experiment sweep
-cd experiments && bash run_all_experiments.sh
 ```
 
 ## Benchmark Tasks
