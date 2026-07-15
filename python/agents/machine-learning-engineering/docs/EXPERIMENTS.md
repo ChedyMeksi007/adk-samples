@@ -79,7 +79,7 @@ Default timeout: 2 hours per task. RAG configurations require 4h+ due to retriev
 
 The benchmark harness produces two kinds of output per task:
 
-1. **`final_state.json`** — written by the root agent's `after_agent_callback` (`agent.py::save_state`). It dumps the full agent state dict after the pipeline completes, including every `*_exec_result_*` entry (returncode, stdout, stderr, score, execution_time), `bug_*` debug cycle markers, generated code, and validation scores. Location: `machine_learning_engineering/workspace/<task_name>/final_state.json`.
+1. **`final_state.json`** — written by the pipeline agent's `after_agent_callback` (`agent.py::save_state`). It dumps the full agent state dict after the pipeline completes, including every `*_exec_result_*` entry (returncode, stdout, stderr, score, execution_time), `bug_*` debug cycle markers, generated code, and validation scores. Location: `machine_learning_engineering/workspace/<task_name>/final_state.json`.
 
 2. **Benchmark JSONL** — the test harness (`test_e2e_benchmark.py`) parses `final_state.json`, counts code execution successes/failures and debug cycles, finds `submission.csv` in the workspace, submits it to Kaggle, polls for the score, computes medal status against the leaderboard, and appends the result as one JSON line to `experiments/<run_dir>/benchmark_<backend>_<pipeline>_<model>.jsonl`.
 
@@ -92,9 +92,9 @@ python experiments/compute_run_metrics.py \
   spooky-author-identification california-housing-prices
 ```
 
-### Example: complete JSONL entry for a successful task
+### Example: JSONL entry schema
 
-Below is a representative benchmark result line (formatted for readability) from a GPT-OSS 120B + Skrub run on `nomad2018-predict-transparent-conductors`:
+Below is an illustrative benchmark result line showing all fields and their structure. Field values are representative but do not correspond to a specific archived run:
 
 ```json
 {
@@ -135,7 +135,11 @@ Key fields:
 - **`code_exec_success` / `code_exec_fail`**: 11 successful and 3 failed code executions. Failures trigger debug cycles (the `bug_*` state entries).
 - **`debug_cycles`**: 2 rounds where the debug agent intervened to fix runtime errors.
 - **`kaggle_score` vs `validation_scores`**: the agent's internal validation score (0.06189) differs slightly from the Kaggle public score (0.06123) due to train/test distribution differences.
-- **`medal`**: computed by comparing `kaggle_score` against the competition leaderboard — rank 312/1244 = 25.09th percentile → silver (top 25%).
+- **`medal`**: computed by comparing `kaggle_score` against the competition leaderboard — rank 78/879 = 8.88th percentile → gold (top 10%).
+
+## Archived Run Artifacts
+
+Sample run artifacts (final agent states, generated solutions, and Kaggle submissions) from development runs are archived in [`logs/`](../logs/). These cover a 4-task subset (Spooky, Jigsaw, Nomad, Pizza) across 7 model×config combinations. See [`logs/INDEX.md`](../logs/INDEX.md) for a listing with Kaggle scores and medal status, and [`logs/README.md`](../logs/README.md) for artifact descriptions.
 
 ## Results
 

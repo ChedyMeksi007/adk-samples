@@ -39,6 +39,7 @@ machine-learning-engineering/
 │       └── submission/                   # Phase 4: test inference & CSV output
 ├── experiments/                           # Experiment tooling
 │   └── compute_run_metrics.py            # Metrics extraction from agent output
+├── logs/                                  # Archived run artifacts (states, solutions)
 ├── docs/                                  # Project documentation
 │   ├── README.md                          # This file
 │   ├── CONTRIBUTIONS.md                   # Per-member contribution breakdown
@@ -170,8 +171,7 @@ cp .env.example .env
 | `BASE_MODEL` | model ID | LiteLLM model identifier, e.g. `openai-gpt-oss-120b`, `openai-llama-3.3-70b-instruct`, `openai-qwen3-coder-480b` |
 | `API_ENDPOINT` | URL | vLLM / Ollama endpoint URL (e.g. `http://localhost:8000/v1/chat/completions`) |
 | `API_KEY` | string | API key for the endpoint |
-| `MAX_TOKENS` | int | Max output tokens per LLM call (default: 300 for fast models, increase for complex tasks) |
-| `TEMPERATURE` | float | Sampling temperature (default: 0.5) |
+| `MAX_TOKENS` | int | Max output tokens per LLM call (default: 8192; `.env.example` sets 300 as a fast-iteration override) |
 | `REQUEST_TIMEOUT` | int | Seconds before LiteLLM times out a single call (default: 3600, needed for large-context models) |
 
 When `USE_LITELLM=1`, `config.py` strips the `/chat/completions` suffix from `API_ENDPOINT` (LiteLLM appends it automatically), sets `OPENAI_API_KEY` and `OPENAI_API_BASE` in the process environment, and instantiates a `LiteLlm` model wrapper. Unsupported parameters (e.g. `temperature` for certain models) are silently dropped via `litellm.drop_params = True`.
@@ -285,10 +285,10 @@ pytest tests/test_e2e_benchmark.py -v -s
 | Nomad 2018 Transparent Conductors | Multi-output Regression | RMSLE |
 | Random Acts of Pizza | Binary Classification | ROC AUC |
 | Spooky Author Identification | Multi-class Classification | Log Loss |
-| Leaf Classification | Multi-class Classification | Accuracy |
+| Leaf Classification | Multi-class Classification | Log Loss |
 | Aerial Cactus Identification | Image Classification | Accuracy |
 | Denoising Dirty Documents | Image-to-Image Regression | MSE |
-| Detecting Insults in Social Commentary | Binary Classification | Accuracy |
+| Detecting Insults in Social Commentary | Binary Classification | AUC |
 | Text Normalization (EN/RU) | Sequence Prediction | Accuracy |
 
 ## Reference
